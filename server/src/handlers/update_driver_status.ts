@@ -1,21 +1,34 @@
+import { db } from '../db';
+import { driverProfilesTable } from '../db/schema';
 import { type UpdateDriverStatusInput, type DriverProfile } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateDriverStatus(input: UpdateDriverStatusInput): Promise<DriverProfile> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to update driver availability status in the database.
-  // Should validate that driver profile exists and update the status field.
-  return Promise.resolve({
-    id: input.driver_id,
-    user_id: 1,
-    license_number: 'LICENSE123',
-    vehicle_make: 'Toyota',
-    vehicle_model: 'Camry',
-    vehicle_year: 2020,
-    vehicle_plate: 'ABC123',
-    status: input.status,
-    rating: null,
-    total_rides: 0,
-    created_at: new Date(),
-    updated_at: new Date()
-  } as DriverProfile);
-}
+export const updateDriverStatus = async (input: UpdateDriverStatusInput): Promise<DriverProfile> => {
+  try {
+    // Update driver status and get the updated record
+    const result = await db.update(driverProfilesTable)
+      .set({ 
+        status: input.status,
+        updated_at: new Date()
+      })
+      .where(eq(driverProfilesTable.id, input.driver_id))
+      .returning()
+      .execute();
+
+    // Check if driver profile was found and updated
+    if (result.length === 0) {
+      throw new Error(`Driver profile with id ${input.driver_id} not found`);
+    }
+
+    const driverProfile = result[0];
+    
+    // Convert numeric fields back to numbers for the response
+    return {
+      ...driverProfile,
+      rating: driverProfile.rating !== null ? driverProfile.rating : null
+    };
+  } catch (error) {
+    console.error('Driver status update failed:', error);
+    throw error;
+  }
+};
